@@ -103,13 +103,16 @@ func (obs *observerHandler) OnAdd(added []observer.Endpoint) {
 				obs.params.TelemetrySettings.Logger.Error("unable to resolve template config", zap.String("receiver", template.id.String()), zap.Error(err))
 				continue
 			}
-
 			discoveredCfg := userConfigMap{}
 			// If user didn't set endpoint set to default value as well as
 			// flag indicating we've done this for later validation.
 			if _, ok := resolvedConfig[endpointConfigKey]; !ok {
 				discoveredCfg[endpointConfigKey] = e.Target
 				discoveredCfg[tmpSetEndpointConfigKey] = struct{}{}
+			}
+			env, err := e.Env()
+			if err == nil {
+				discoveredCfg[endpointConfigKey] = env["name"]
 			}
 
 			// Though not necessary with contrib provided observers, nothing is stopping custom
