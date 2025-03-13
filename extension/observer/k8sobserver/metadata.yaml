@@ -19,3 +19,13 @@ tests:
         - "k8s.io/apimachinery/pkg/watch.(*Broadcaster).loop"
         - "internal/poll.runtime_pollWait"
         - "net/http.(*persistConn).writeLoop"
+
+telemetry:
+  metrics:
+    k8s_observer_watch_errors:
+      enabled: true
+      description: "Counter with the number of errors while watching for Kubernetes resources."
+      unit: "1"
+      sum:
+        value_type: int
+        monotonic: true
