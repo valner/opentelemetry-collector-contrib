@@ -4,6 +4,7 @@
 package k8sobserver
 
 import (
+	v1 "k8s.io/api/core/v1"
 	"sync"
 	"testing"
 
@@ -19,6 +20,17 @@ func newTestHandler() *handler {
 		idNamespace: "test-1",
 		endpoints:   &sync.Map{},
 		logger:      zap.NewNop(),
+		config:      &Config{ListOnlyRunningPods: true}, // Set default to true
+	}
+	return h
+}
+
+func newTestHandlerWithConfig(listOnlyRunningPods bool) *handler {
+	h := &handler{
+		idNamespace: "test-1",
+		endpoints:   &sync.Map{},
+		logger:      zap.NewNop(),
+		config:      &Config{ListOnlyRunningPods: listOnlyRunningPods},
 	}
 	return h
 }
@@ -356,4 +368,112 @@ func TestNodeEndpointsChanged(t *testing.T) {
 			},
 		},
 	}, th.ListEndpoints())
+}
+
+// Test cases for listOnlyRunningPods functionality
+func TestPodEndpointsListOnlyRunningPodsTrue(t *testing.T) {
+	// Test with listOnlyRunningPods = true (default behavior)
+	th := newTestHandlerWithConfig(true)
+
+	// Add a running pod - should create endpoints
+	th.OnAdd(podWithNamedPorts, true)
+	runningEndpoints := th.ListEndpoints()
+	assert.Len(t, runningEndpoints, 3) // pod + container + port endpoints
+
+	// Add a pending pod - should NOT create endpoints when listOnlyRunningPods is true
+	th.OnAdd(podPending, true)
+	endpoints := th.ListEndpoints()
+	assert.Len(t, endpoints, 3) // Should still be 3 (no new endpoints added)
+
+	// Add a failed pod - should NOT create endpoints when listOnlyRunningPods is true
+	th.OnAdd(podFailed, true)
+	endpoints = th.ListEndpoints()
+	assert.Len(t, endpoints, 3) // Should still be 3 (no new endpoints added)
+}
+
+func TestPodEndpointsListOnlyRunningPodsFalse(t *testing.T) {
+	// Test with listOnlyRunningPods = false
+	th := newTestHandlerWithConfig(false)
+
+	// Add a running pod - should create endpoints
+	th.OnAdd(podWithNamedPorts, true)
+	runningEndpoints := th.ListEndpoints()
+	assert.Len(t, runningEndpoints, 3) // pod + container + port endpoints
+
+	// Add a pending pod - should create endpoints when listOnlyRunningPods is false
+	// Note: Only pod endpoint is created for pending pods since containers are not running
+	th.OnAdd(podPending, true)
+	endpoints := th.ListEndpoints()
+	assert.Len(t, endpoints, 4) // 3 from running pod + 1 from pending pod (only pod endpoint, no container/port since containers are waiting)
+
+	// Verify the pending pod endpoint exists
+	var foundPendingPod bool
+	for _, endpoint := range endpoints {
+		if endpoint.ID == "test-1/pod-pending-UID" {
+			foundPendingPod = true
+			podDetails := endpoint.Details.(*observer.Pod)
+			assert.Equal(t, "pod-pending", podDetails.Name)
+			assert.Equal(t, map[string]string{"env": "test"}, podDetails.Labels)
+			break
+		}
+	}
+	assert.True(t, foundPendingPod, "Pending pod endpoint should be created when listOnlyRunningPods is false")
+
+	// Add a failed pod - should create endpoints when listOnlyRunningPods is false
+	// Note: Only pod endpoint is created for failed pods since containers are not running
+	th.OnAdd(podFailed, true)
+	endpoints = th.ListEndpoints()
+	assert.Len(t, endpoints, 5) // 3 + 1 + 1 from failed pod
+
+	// Verify the failed pod endpoint exists
+	var foundFailedPod bool
+	for _, endpoint := range endpoints {
+		if endpoint.ID == "test-1/pod-failed-UID" {
+			foundFailedPod = true
+			podDetails := endpoint.Details.(*observer.Pod)
+			assert.Equal(t, "pod-failed", podDetails.Name)
+			assert.Equal(t, map[string]string{"env": "test"}, podDetails.Labels)
+			break
+		}
+	}
+	assert.True(t, foundFailedPod, "Failed pod endpoint should be created when listOnlyRunningPods is false")
+}
+
+func TestPodEndpointsUpdateWithListOnlyRunningPods(t *testing.T) {
+	// Test updating pod state with listOnlyRunningPods = true
+	th := newTestHandlerWithConfig(true)
+
+	// Start with a running pod
+	th.OnAdd(podWithNamedPorts, true)
+	assert.Len(t, th.ListEndpoints(), 3)
+
+	// Update to pending state - endpoints should be removed
+	pendingPod := podWithNamedPorts.DeepCopy()
+	pendingPod.Status.Phase = v1.PodPending
+	th.OnUpdate(podWithNamedPorts, pendingPod)
+	assert.Empty(t, th.ListEndpoints(), "Endpoints should be removed when pod becomes non-running and listOnlyRunningPods is true")
+
+	// Update back to running state - endpoints should be restored
+	th.OnUpdate(pendingPod, podWithNamedPorts)
+	assert.Len(t, th.ListEndpoints(), 3, "Endpoints should be restored when pod becomes running again")
+}
+
+func TestPodEndpointsUpdateWithListOnlyRunningPodsFalse(t *testing.T) {
+	// Test updating pod state with listOnlyRunningPods = false
+	th := newTestHandlerWithConfig(false)
+
+	// Start with a running pod
+	th.OnAdd(podWithNamedPorts, true)
+	assert.Len(t, th.ListEndpoints(), 3)
+
+	// Update to pending state - endpoints should remain (different details though)
+	pendingPod := podWithNamedPorts.DeepCopy()
+	pendingPod.Status.Phase = v1.PodPending
+	th.OnUpdate(podWithNamedPorts, pendingPod)
+	endpoints := th.ListEndpoints()
+	assert.Len(t, endpoints, 3, "Endpoints should remain when pod becomes non-running and listOnlyRunningPods is false")
+
+	// Update back to running state - endpoints should remain the same
+	th.OnUpdate(pendingPod, podWithNamedPorts)
+	assert.Len(t, th.ListEndpoints(), 3, "Endpoints should remain when pod becomes running again")
 }

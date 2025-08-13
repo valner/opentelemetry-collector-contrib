@@ -32,20 +32,24 @@ func TestLoadConfig(t *testing.T) {
 		{
 			id: component.NewIDWithName(metadata.Type, "own-node-only"),
 			expected: &Config{
-				Node:        "node-1",
-				APIConfig:   k8sconfig.APIConfig{AuthType: k8sconfig.AuthTypeKubeConfig},
-				ObservePods: true,
+				Node:                "node-1",
+				APIConfig:           k8sconfig.APIConfig{AuthType: k8sconfig.AuthTypeKubeConfig},
+				ObservePods:         true,
+				ListOnlyRunningPods: true,
+				TargetForPod:        TargetForPodIP,
 			},
 		},
 		{
 			id: component.NewIDWithName(metadata.Type, "observe-all"),
 			expected: &Config{
-				Node:             "",
-				APIConfig:        k8sconfig.APIConfig{AuthType: k8sconfig.AuthTypeNone},
-				ObservePods:      true,
-				ObserveNodes:     true,
-				ObserveServices:  true,
-				ObserveIngresses: true,
+				Node:                "",
+				APIConfig:           k8sconfig.APIConfig{AuthType: k8sconfig.AuthTypeNone},
+				ObservePods:         true,
+				ObserveNodes:        true,
+				ObserveServices:     true,
+				ObserveIngresses:    true,
+				ListOnlyRunningPods: true,
+				TargetForPod:        TargetForPodIP,
 			},
 		},
 		{
@@ -55,6 +59,10 @@ func TestLoadConfig(t *testing.T) {
 		{
 			id:          component.NewIDWithName(metadata.Type, "invalid_no_observing"),
 			expectedErr: "one of observe_pods, observe_nodes, observe_services and observe_ingresses must be true",
+		},
+		{
+			id:          component.NewIDWithName(metadata.Type, "invalid_target_for_pod"),
+			expectedErr: "target_for_pod must be either 'podIp' or 'podName'",
 		},
 	}
 	for _, tt := range tests {

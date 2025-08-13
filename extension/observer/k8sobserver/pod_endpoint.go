@@ -12,12 +12,28 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/observer"
 )
 
+const (
+	// TargetForPodIP uses the pod IP as the target
+	TargetForPodIP = "podIp"
+	// TargetForPodName uses the pod namespace and name as the target
+	TargetForPodName = "podName"
+)
+
 // convertPodToEndpoints converts a pod instance into a slice of endpoints. The endpoints
 // include the pod itself as well as an endpoint for each container port that is mapped
 // to a container that is in a running state.
-func convertPodToEndpoints(idNamespace string, pod *v1.Pod) []observer.Endpoint {
+func convertPodToEndpoints(idNamespace string, pod *v1.Pod, listOnlyRunningPods bool, targetForPod string) []observer.Endpoint {
 	podID := observer.EndpointID(fmt.Sprintf("%s/%s", idNamespace, pod.UID))
 	podIP := pod.Status.PodIP
+
+	// Determine the target based on configuration
+	var podTarget string
+	if targetForPod == TargetForPodName {
+		podTarget = fmt.Sprintf("%s-%s", pod.Namespace, pod.Name)
+	} else {
+		// Default to podIp for backward compatibility
+		podTarget = podIP
+	}
 
 	podDetails := observer.Pod{
 		UID:         string(pod.UID),
@@ -27,14 +43,14 @@ func convertPodToEndpoints(idNamespace string, pod *v1.Pod) []observer.Endpoint 
 		Namespace:   pod.Namespace,
 	}
 
-	// Return no endpoints if the Pod is not running
-	if pod.Status.Phase != v1.PodRunning {
+	// Return no endpoints if the Pod is not running and listOnlyRunningPods is true
+	if listOnlyRunningPods && pod.Status.Phase != v1.PodRunning {
 		return nil
 	}
 
 	endpoints := []observer.Endpoint{{
 		ID:      podID,
-		Target:  podIP,
+		Target:  podTarget,
 		Details: &podDetails,
 	}}
 
@@ -62,7 +78,7 @@ func convertPodToEndpoints(idNamespace string, pod *v1.Pod) []observer.Endpoint 
 		)
 		endpoints = append(endpoints, observer.Endpoint{
 			ID:     endpointID,
-			Target: podIP,
+			Target: podTarget,
 			Details: &observer.PodContainer{
 				Name:        container.Name,
 				ContainerID: rc.ID,
@@ -78,9 +94,18 @@ func convertPodToEndpoints(idNamespace string, pod *v1.Pod) []observer.Endpoint 
 					"%s/%s(%d)", podID, port.Name, port.ContainerPort,
 				),
 			)
+
+			// For port endpoints, use the appropriate target format
+			var portTarget string
+			if targetForPod == TargetForPodName {
+				portTarget = fmt.Sprintf("%s:%d", pod.Name, port.ContainerPort)
+			} else {
+				portTarget = fmt.Sprintf("%s:%d", podIP, port.ContainerPort)
+			}
+
 			endpoints = append(endpoints, observer.Endpoint{
 				ID:     endpointID,
-				Target: fmt.Sprintf("%s:%d", podIP, port.ContainerPort),
+				Target: portTarget,
 				Details: &observer.Port{
 					Pod:       podDetails,
 					Name:      port.Name,

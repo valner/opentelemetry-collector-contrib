@@ -38,6 +38,10 @@ type Config struct {
 	ObserveServices bool `mapstructure:"observe_services"`
 	// ObserveIngresses determines whether to report observer ingress. `false` by default.
 	ObserveIngresses bool `mapstructure:"observe_ingresses"`
+	// ListOnlyRunningPods determines whether to list only pods that are in running state. `true` by default.
+	ListOnlyRunningPods bool `mapstructure:"list_only_running_pods"`
+	// TargetForPod determines what target to use for pod endpoints. Valid values are "podIp" and "podName". "podIp" by default.
+	TargetForPod string `mapstructure:"target_for_pod"`
 	// Namespaces limits the namespaces for the observed resources. By default, all namespaces will be observed.
 	Namespaces []string `mapstructure:"namespaces"`
 }
@@ -47,5 +51,10 @@ func (cfg *Config) Validate() error {
 	if !cfg.ObservePods && !cfg.ObserveNodes && !cfg.ObserveServices && !cfg.ObserveIngresses {
 		return errors.New("one of observe_pods, observe_nodes, observe_services and observe_ingresses must be true")
 	}
+
+	if cfg.TargetForPod != "" && cfg.TargetForPod != TargetForPodIP && cfg.TargetForPod != TargetForPodName {
+		return errors.New("target_for_pod must be either 'podIp' or 'podName'")
+	}
+
 	return nil
 }

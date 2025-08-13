@@ -27,6 +27,8 @@ type handler struct {
 	idNamespace string
 	// endpoints is a map[observer.EndpointID]observer.Endpoint all existing endpoints at any given moment
 	endpoints *sync.Map
+	// config holds the k8s observer configuration
+	config *Config
 
 	logger *zap.Logger
 }
@@ -50,7 +52,7 @@ func (h *handler) OnAdd(objectInterface any, _ bool) {
 
 	switch object := objectInterface.(type) {
 	case *v1.Pod:
-		endpoints = convertPodToEndpoints(h.idNamespace, object)
+		endpoints = convertPodToEndpoints(h.idNamespace, object, h.config.ListOnlyRunningPods, h.config.TargetForPod)
 	case *v1.Service:
 		endpoints = convertServiceToEndpoints(h.idNamespace, object)
 	case *networkingv1.Ingress:
@@ -78,10 +80,10 @@ func (h *handler) OnUpdate(oldObjectInterface, newObjectInterface any) {
 			h.logger.Warn("skip updating endpoint for pod as the update is of different type", zap.Any("oldPod", oldObjectInterface), zap.Any("newObject", newObjectInterface))
 			return
 		}
-		for _, e := range convertPodToEndpoints(h.idNamespace, oldObject) {
+		for _, e := range convertPodToEndpoints(h.idNamespace, oldObject, h.config.ListOnlyRunningPods, h.config.TargetForPod) {
 			oldEndpoints[e.ID] = e
 		}
-		for _, e := range convertPodToEndpoints(h.idNamespace, newPod) {
+		for _, e := range convertPodToEndpoints(h.idNamespace, newPod, h.config.ListOnlyRunningPods, h.config.TargetForPod) {
 			newEndpoints[e.ID] = e
 		}
 
@@ -178,7 +180,7 @@ func (h *handler) OnDelete(objectInterface any) {
 		return
 	case *v1.Pod:
 		if object != nil {
-			endpoints = convertPodToEndpoints(h.idNamespace, object)
+			endpoints = convertPodToEndpoints(h.idNamespace, object, h.config.ListOnlyRunningPods, h.config.TargetForPod)
 		}
 	case *v1.Service:
 		if object != nil {
