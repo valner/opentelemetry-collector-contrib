@@ -38,6 +38,8 @@ type Config struct {
 	ObserveServices bool `mapstructure:"observe_services"`
 	// ObserveIngresses determines whether to report observer ingress. `false` by default.
 	ObserveIngresses bool `mapstructure:"observe_ingresses"`
+	// ListOnlyRunningPods determines whether to list only pods that are in running state. `true` by default.
+	ListOnlyRunningPods bool `mapstructure:"list_only_running_pods"`
 	// Namespaces limits the namespaces for the observed resources. By default, all namespaces will be observed.
 	Namespaces []string `mapstructure:"namespaces"`
 }

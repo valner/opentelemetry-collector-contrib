@@ -54,6 +54,6 @@ func TestPodObjectToPortEndpoint(t *testing.T) {
 		},
 	}
 
-	endpoints := convertPodToEndpoints("namespace", podWithNamedPorts)
+	endpoints := convertPodToEndpoints("namespace", podWithNamedPorts, true)
 	require.Equal(t, expectedEndpoints, endpoints)
 }

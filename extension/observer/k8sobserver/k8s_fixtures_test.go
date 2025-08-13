@@ -104,6 +104,38 @@ var podWithNamedPorts = func() *v1.Pod {
 	return pod
 }()
 
+// Pod in pending state for testing listOnlyRunningPods functionality
+var podPending = func() *v1.Pod {
+	pod := newPod("pod-pending", "localhost")
+	pod.Labels = map[string]string{
+		"env": "test",
+	}
+	pod.Status.Phase = v1.PodPending // Non-running state
+	pod.Status.ContainerStatuses = []v1.ContainerStatus{
+		container1StatusWaiting,
+	}
+	pod.Spec.Containers = []v1.Container{
+		container1,
+	}
+	return pod
+}()
+
+// Pod in failed state for testing listOnlyRunningPods functionality
+var podFailed = func() *v1.Pod {
+	pod := newPod("pod-failed", "localhost")
+	pod.Labels = map[string]string{
+		"env": "test",
+	}
+	pod.Status.Phase = v1.PodFailed // Non-running state
+	pod.Status.ContainerStatuses = []v1.ContainerStatus{
+		container1StatusWaiting,
+	}
+	pod.Spec.Containers = []v1.Container{
+		container1,
+	}
+	return pod
+}()
+
 func pointerBool(val bool) *bool {
 	return &val
 }

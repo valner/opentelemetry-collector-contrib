@@ -32,20 +32,22 @@ func TestLoadConfig(t *testing.T) {
 		{
 			id: component.NewIDWithName(metadata.Type, "own-node-only"),
 			expected: &Config{
-				Node:        "node-1",
-				APIConfig:   k8sconfig.APIConfig{AuthType: k8sconfig.AuthTypeKubeConfig},
-				ObservePods: true,
+				Node:                "node-1",
+				APIConfig:           k8sconfig.APIConfig{AuthType: k8sconfig.AuthTypeKubeConfig},
+				ObservePods:         true,
+				ListOnlyRunningPods: true,
 			},
 		},
 		{
 			id: component.NewIDWithName(metadata.Type, "observe-all"),
 			expected: &Config{
-				Node:             "",
-				APIConfig:        k8sconfig.APIConfig{AuthType: k8sconfig.AuthTypeNone},
-				ObservePods:      true,
-				ObserveNodes:     true,
-				ObserveServices:  true,
-				ObserveIngresses: true,
+				Node:                "",
+				APIConfig:           k8sconfig.APIConfig{AuthType: k8sconfig.AuthTypeNone},
+				ObservePods:         true,
+				ObserveNodes:        true,
+				ObserveServices:     true,
+				ObserveIngresses:    true,
+				ListOnlyRunningPods: true,
 			},
 		},
 		{

@@ -15,7 +15,7 @@ import (
 // convertPodToEndpoints converts a pod instance into a slice of endpoints. The endpoints
 // include the pod itself as well as an endpoint for each container port that is mapped
 // to a container that is in a running state.
-func convertPodToEndpoints(idNamespace string, pod *v1.Pod) []observer.Endpoint {
+func convertPodToEndpoints(idNamespace string, pod *v1.Pod, listOnlyRunningPods bool) []observer.Endpoint {
 	podID := observer.EndpointID(fmt.Sprintf("%s/%s", idNamespace, pod.UID))
 	podIP := pod.Status.PodIP
 
@@ -27,8 +27,8 @@ func convertPodToEndpoints(idNamespace string, pod *v1.Pod) []observer.Endpoint 
 		Namespace:   pod.Namespace,
 	}
 
-	// Return no endpoints if the Pod is not running
-	if pod.Status.Phase != v1.PodRunning {
+	// Return no endpoints if the Pod is not running and listOnlyRunningPods is true
+	if listOnlyRunningPods && pod.Status.Phase != v1.PodRunning {
 		return nil
 	}
 
